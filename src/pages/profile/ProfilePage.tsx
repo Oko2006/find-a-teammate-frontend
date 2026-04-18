@@ -1,21 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { User, Mail, GraduationCap, MapPin, Edit3, Trash2, Camera, Github, Globe, Linkedin, Check } from 'lucide-react';
+import { Mail, GraduationCap, MapPin, Edit3, Trash2, Camera, Github, Globe, Linkedin, Check } from 'lucide-react';
 import Button from '../../components/common/Button';
 import { motion } from 'motion/react';
-import { cn } from '../../lib/utils';
+import { apiService } from '../../services/api';
 
 const ProfilePage: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, refreshProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editedUser, setEditedUser] = useState(user!);
   const [isSaving, setIsSaving] = useState(false);
+  const [profileId, setProfileId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const { profile, user: mappedUser } = await apiService.profiles.getCurrentProfile();
+        setProfileId(profile.id);
+        setEditedUser(mappedUser);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    loadProfile();
+  }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
-    // Simulate API update
-    await new Promise(r => setTimeout(r, 1000));
+    if (!profileId) return;
+    await apiService.profiles.update(profileId, {
+      full_name: editedUser.fullName,
+      major: editedUser.major,
+      study_year: editedUser.studyYear,
+      bio: editedUser.bio,
+      skills: editedUser.skills,
+      interests: editedUser.interests,
+      preferred_role: editedUser.preferredRole,
+    });
     updateUser(editedUser);
+    await refreshProfile();
     setIsEditing(false);
     setIsSaving(false);
   };
@@ -45,10 +68,10 @@ const ProfilePage: React.FC = () => {
                 </button>
               </div>
               <div className="pb-2">
-                <h1 className="heading-display text-3xl md:text-5xl text-slate-950">{user.firstName} {user.lastName}</h1>
+                <h1 className="heading-display text-3xl md:text-5xl text-slate-950">{user.fullName}</h1>
                 <p className="text-slate-500 font-medium flex items-center justify-center md:justify-start gap-2">
                   <GraduationCap className="w-5 h-5 text-primary" />
-                  {user.major} · Class of {user.graduationYear}
+                  {user.major} · Study year {user.studyYear}
                 </p>
               </div>
             </div>

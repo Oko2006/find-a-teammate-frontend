@@ -6,7 +6,6 @@ import {
   MessageSquare, 
   Zap, 
   Users, 
-  Settings,
   Circle
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -50,15 +49,7 @@ const Sidebar: React.FC = () => {
         })}
       </nav>
 
-      <div className="mt-auto">
-        <Link
-          to="/settings"
-          className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition-colors"
-        >
-          <Settings className="w-5 h-5" />
-          Settings
-        </Link>
-      </div>
+      <div className="mt-auto" />
     </div>
   );
 };

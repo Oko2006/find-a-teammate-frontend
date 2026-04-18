@@ -2,63 +2,80 @@
  * FindATeammate Types
  */
 
-export type ProjectStatus = 'open' | 'closed' | 'ongoing';
+export type ProjectStatus = 'open' | 'closed';
 
-export interface User {
-  id: string;
-  username: string;
-  email: string;
-  firstName: string;
-  lastName: string;
+export interface Profile {
+  id: number;
+  user: number;
+  full_name: string;
+  major: string;
+  study_year: string;
   bio: string;
   skills: string[];
-  avatarUrl?: string;
+  interests: string[];
+  preferred_role: string;
+  profile_picture?: string | null;
+}
+
+export interface User {
+  id: number;
+  email: string;
+  fullName: string;
   major: string;
-  graduationYear: number;
+  studyYear: string;
+  bio: string;
+  skills: string[];
+  interests: string[];
+  preferredRole: string;
+  avatarUrl?: string;
 }
 
 export interface Project {
-  id: string;
+  id: number;
   title: string;
   description: string;
-  creatorId: string;
-  creator?: User;
-  tags: string[];
-  requiredSkills: string[];
+  category: string;
+  required_skills: string[];
+  team_size_needed: number;
   status: ProjectStatus;
-  createdAt: string;
-  memberCount: number;
-  maxMembers: number;
+  course_name?: string;
+  course_section?: string;
+  created_by: string;
+  created_at: string;
 }
 
 export interface Application {
-  id: string;
-  projectId: string;
-  userId: string;
+  id: number;
+  project: number;
+  applicant: string;
   message: string;
   status: 'pending' | 'accepted' | 'rejected';
-  createdAt: string;
+  created_at: string;
 }
 
-export interface Message {
-  id: string;
-  senderId: string;
-  recipientId: string;
-  content: string;
-  createdAt: string;
-  isRead: boolean;
-  projectId?: string; // Optional: associated with a project thread
+export interface DirectThread {
+  id: number;
+  participants: number[];
+  unique_key: string;
+  created_at: string;
+}
+
+export interface DirectMessage {
+  id: number;
+  thread: number;
+  sender: string;
+  body: string;
+  created_at: string;
 }
 
 export interface Notification {
-  id: string;
-  userId: string;
-  title: string;
-  content: string;
-  type: 'application' | 'message' | 'system';
-  isRead: boolean;
-  createdAt: string;
-  link?: string;
+  id: number;
+  user: number;
+  actor: string | null;
+  notification_type: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
 }
 
 export interface AuthState {
@@ -68,12 +85,17 @@ export interface AuthState {
   isAuthenticated: boolean;
 }
 
-export interface AIPlanResult {
-  title: string;
-  steps: {
-    title: string;
-    description: string;
-    suggestedRoles: string[];
+export interface PlannerResult {
+  project_plan: {
+    overview: string;
+    milestones: string[];
+  };
+  task_breakdown: {
+    task: string;
+    owner_role: string;
+    order: number;
   }[];
-  timelineRecommendations: string;
+  timeline: Record<string, string>;
+  suggested_roles: string[];
+  raw_input: string;
 }

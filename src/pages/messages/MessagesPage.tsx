@@ -1,33 +1,90 @@
-import React, { useState } from 'react';
-import { mockMessages, mockUsers } from '../../services/api';
-import { Message, User } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../../services/api';
+import { DirectMessage, DirectThread, Profile, User } from '../../types';
 import { Search, Send, User as UserIcon, MoreHorizontal, Phone, Video, Image as ImageIcon, Smile, MessageSquare } from 'lucide-react';
-import { cn, formatDate } from '../../lib/utils';
+import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/common/Button';
 
 const MessagesPage: React.FC = () => {
   const { user: currentUser } = useAuth();
-  const [selectedChat, setSelectedChat] = useState<User | null>(mockUsers[1]);
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  const [selectedChat, setSelectedChat] = useState<User | null>(null);
+  const [threads, setThreads] = useState<DirectThread[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !selectedChat || !currentUser) return;
+  const getUserId = () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return null;
+    try {
+      const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const decoded = JSON.parse(atob(payload));
+      return decoded.user_id as number;
+    } catch {
+      return null;
+    }
+  };
 
-    const msg: Message = {
-      id: Date.now().toString(),
-      senderId: currentUser.id,
-      recipientId: selectedChat.id,
-      content: newMessage,
-      createdAt: new Date().toISOString(),
-      isRead: false,
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [threadsRes, profilesRes, messagesRes] = await Promise.all([
+          apiService.messaging.listThreads(),
+          apiService.profiles.list(),
+          apiService.messaging.listMessages(),
+        ]);
+        const threadResults = threadsRes.data.results ? threadsRes.data.results : threadsRes.data;
+        const profileResults = profilesRes.data.results ? profilesRes.data.results : profilesRes.data;
+        const messageResults = messagesRes.data.results ? messagesRes.data.results : messagesRes.data;
+        setThreads(threadResults);
+        setProfiles(profileResults);
+        setMessages(messageResults);
+
+        const currentUserId = getUserId();
+        if (currentUserId && threadResults.length > 0) {
+          const firstThread = threadResults[0];
+          const otherId = firstThread.participants.find((id: number) => id !== currentUserId);
+          const otherProfile = profileResults.find((p: Profile) => p.user === otherId);
+          if (otherProfile) {
+            setSelectedChat({
+              id: otherProfile.user,
+              email: '',
+              fullName: otherProfile.full_name,
+              major: otherProfile.major,
+              studyYear: otherProfile.study_year,
+              bio: otherProfile.bio,
+              skills: otherProfile.skills,
+              interests: otherProfile.interests,
+              preferredRole: otherProfile.preferred_role,
+              avatarUrl: otherProfile.profile_picture || undefined,
+            });
+          }
+        }
+      } catch (error) {
+        console.error(error);
+      }
     };
+    loadData();
+  }, []);
 
-    setMessages([...messages, msg]);
-    setNewMessage('');
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedChat) return;
+    const currentUserId = getUserId();
+    const thread = threads.find((t) => t.participants.includes(selectedChat.id) && t.participants.includes(currentUserId || 0));
+    if (!thread) return;
+
+    try {
+      await apiService.messaging.sendMessage(thread.id, newMessage.trim());
+      const messagesRes = await apiService.messaging.listMessages();
+      const messageResults = messagesRes.data.results ? messagesRes.data.results : messagesRes.data;
+      setMessages(messageResults);
+      setNewMessage('');
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
@@ -48,36 +105,55 @@ const MessagesPage: React.FC = () => {
           </div>
           
           <div className="flex-grow overflow-y-auto px-2 space-y-1">
-            {mockUsers.map((user) => (
+            {threads.map((thread) => {
+              const currentUserId = getUserId();
+              const otherId = thread.participants.find((id) => id !== currentUserId);
+              const otherProfile = profiles.find((p) => p.user === otherId);
+              if (!otherProfile) return null;
+              const chatUser: User = {
+                id: otherProfile.user,
+                email: '',
+                fullName: otherProfile.full_name,
+                major: otherProfile.major,
+                studyYear: otherProfile.study_year,
+                bio: otherProfile.bio,
+                skills: otherProfile.skills,
+                interests: otherProfile.interests,
+                preferredRole: otherProfile.preferred_role,
+                avatarUrl: otherProfile.profile_picture || undefined,
+              };
+              const lastMessage = messages.find((m) => m.thread === thread.id);
+              return (
               <button
-                key={user.id}
-                onClick={() => setSelectedChat(user)}
+                key={thread.id}
+                onClick={() => setSelectedChat(chatUser)}
                 className={cn(
                   "w-full flex items-center gap-4 p-4 rounded-3xl transition-all text-left",
-                  selectedChat?.id === user.id 
+                  selectedChat?.id === chatUser.id 
                     ? "bg-white shadow-soft border border-indigo-100" 
                     : "hover:bg-white/50"
                 )}
               >
                 <div className="relative">
                   <img 
-                    src={user.avatarUrl} 
-                    alt={user.firstName} 
+                    src={chatUser.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(chatUser.fullName)}`} 
+                    alt={chatUser.fullName} 
                     className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
                   />
                   <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></div>
                 </div>
                 <div className="flex-grow min-w-0">
                   <div className="flex justify-between items-baseline mb-1">
-                    <h3 className="font-bold text-slate-900 truncate">{user.firstName} {user.lastName}</h3>
+                    <h3 className="font-bold text-slate-900 truncate">{chatUser.fullName}</h3>
                     <span className="text-[10px] text-slate-400 font-medium">10:42 AM</span>
                   </div>
                   <p className="text-xs text-slate-500 truncate font-medium">
-                    {mockMessages.find(m => m.senderId === user.id || m.recipientId === user.id)?.content || "No messages yet"}
+                    {lastMessage?.body || "No messages yet"}
                   </p>
                 </div>
               </button>
-            ))}
+            );
+            })}
           </div>
         </div>
 
@@ -88,9 +164,9 @@ const MessagesPage: React.FC = () => {
               {/* Header */}
               <div className="p-6 border-b border-slate-50 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <img src={selectedChat.avatarUrl} alt="" className="w-10 h-10 rounded-full" />
+                  <img src={selectedChat.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedChat.fullName)}`} alt="" className="w-10 h-10 rounded-full" />
                   <div>
-                    <h3 className="font-bold text-slate-900 leading-none">{selectedChat.firstName} {selectedChat.lastName}</h3>
+                    <h3 className="font-bold text-slate-900 leading-none">{selectedChat.fullName}</h3>
                     <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">Online Now</span>
                   </div>
                 </div>
@@ -110,8 +186,14 @@ const MessagesPage: React.FC = () => {
                 </div>
 
                 <AnimatePresence>
-                  {messages.map((msg, i) => {
-                    const isMe = msg.senderId === currentUser?.id;
+                  {messages
+                    .filter((msg) => {
+                      const currentUserId = getUserId();
+                      const thread = threads.find((t) => t.id === msg.thread);
+                      return thread?.participants.includes(selectedChat.id) && thread?.participants.includes(currentUserId || 0);
+                    })
+                    .map((msg) => {
+                    const isMe = msg.sender === currentUser?.email;
                     return (
                       <motion.div
                         key={msg.id}
@@ -125,9 +207,9 @@ const MessagesPage: React.FC = () => {
                             ? "bg-indigo-600 text-white rounded-tr-none" 
                             : "bg-white border border-slate-100 text-slate-700 rounded-tl-none"
                         )}>
-                          {msg.content}
+                          {msg.body}
                           <div className={cn("text-[9px] mt-2 font-bold uppercase tracking-widest opacity-60", isMe ? "text-right" : "text-left")}>
-                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
                       </motion.div>

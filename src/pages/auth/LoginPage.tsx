@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { apiService } from '../../services/api';
 import Button from '../../components/common/Button';
 import { Mail, Lock, LogIn, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -20,8 +19,7 @@ const LoginPage: React.FC = () => {
     setError('');
     
     try {
-      const response = await apiService.login({ email, password });
-      login(response.data.token, response.data.user);
+      await login(email, password);
       navigate('/projects');
     } catch (err) {
       setError('Invalid email or password');

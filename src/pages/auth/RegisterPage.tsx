@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/common/Button';
+import { apiService } from '../../services/api';
 import { Mail, Lock, User as UserIcon, GraduationCap } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -12,6 +13,7 @@ const RegisterPage: React.FC = () => {
     email: '',
     password: '',
     major: '',
+    studyYear: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
@@ -21,23 +23,31 @@ const RegisterPage: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      login('mock-jwt', {
-        id: 'u-new',
-        username: formData.email.split('@')[0],
-        email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        bio: '',
-        skills: [],
+    try {
+      await apiService.auth.register(formData.email, formData.password, formData.password);
+      await login(formData.email, formData.password);
+      const { profile } = await apiService.profiles.getCurrentProfile();
+      await apiService.profiles.update(profile.id, {
+        full_name: `${formData.firstName} ${formData.lastName}`.trim(),
         major: formData.major,
-        graduationYear: 2028
+        study_year: formData.studyYear,
       });
       navigate('/projects');
+    } catch (error) {
+      console.error(error);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
+
+  const majors = [
+    'Computer Science',
+    'Computer Information Systems',
+    'Software Engineering',
+    'Data Science & Artificial Intelligence',
+    'Cybersecurity',
+    'Business Information Technology',
+  ];
 
   return (
     <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -90,14 +100,28 @@ const RegisterPage: React.FC = () => {
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Major / Study Area</label>
             <div className="relative">
               <GraduationCap className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-              <input
-                type="text"
+              <select
                 required
                 className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border-slate-200 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                placeholder="e.g. Computer Science"
+                value={formData.major}
                 onChange={(e) => setFormData({...formData, major: e.target.value})}
-              />
+              >
+                <option value="" disabled>Select your major</option>
+                {majors.map((major) => (
+                  <option key={major} value={major}>{major}</option>
+                ))}
+              </select>
             </div>
+          </div>
+          <div className="col-span-2">
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Study Year</label>
+            <input
+              type="text"
+              required
+              className="w-full px-4 py-4 rounded-2xl bg-slate-50 border-slate-200 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              placeholder="e.g. 2"
+              onChange={(e) => setFormData({...formData, studyYear: e.target.value})}
+            />
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Password</label>

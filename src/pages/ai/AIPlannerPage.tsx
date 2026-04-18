@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Zap, Upload, Sparkles, CheckCircle2, Layout, UserPlus, Calendar } from 'lucide-react';
+import { Zap, Sparkles, CheckCircle2, UserPlus, Calendar } from 'lucide-react';
 import Button from '../../components/common/Button';
 import { generateProjectPlan } from '../../services/aiPlannerService';
-import { AIPlanResult } from '../../types';
+import { PlannerResult } from '../../types';
 import { cn } from '../../lib/utils';
 
 const AIPlannerPage: React.FC = () => {
   const [description, setDescription] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [result, setResult] = useState<AIPlanResult | null>(null);
+  const [result, setResult] = useState<PlannerResult | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
@@ -18,7 +19,7 @@ const AIPlannerPage: React.FC = () => {
     setIsGenerating(true);
     setError(null);
     try {
-      const plan = await generateProjectPlan(description);
+      const plan = await generateProjectPlan(description, file || undefined);
       setResult(plan);
     } catch (err) {
       setError('Failed to generate plan. Please try again.');
@@ -53,11 +54,15 @@ const AIPlannerPage: React.FC = () => {
           </div>
 
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div 
-              className="w-full md:w-auto border-2 border-dashed border-white/30 rounded-[--radius-md] py-4 px-8 text-center text-sm cursor-pointer hover:bg-white/5 transition-colors"
-            >
-              Drop files here or click to browse
-            </div>
+            <label className="w-full md:w-auto border-2 border-dashed border-white/30 rounded-[--radius-md] py-4 px-8 text-center text-sm cursor-pointer hover:bg-white/5 transition-colors">
+              <input
+                type="file"
+                accept=".txt,.pdf,.docx,.jpg,.jpeg,.png"
+                className="hidden"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+              />
+              {file ? `Selected: ${file.name}` : 'Drop files here or click to browse'}
+            </label>
             <Button 
               size="lg" 
               className="w-full md:w-auto bg-white text-primary hover:bg-white/90"
@@ -84,15 +89,15 @@ const AIPlannerPage: React.FC = () => {
               className="space-y-12 pb-20"
             >
               <div className="text-center">
-                <h2 className="heading-display text-3xl text-primary mb-2">{result.title}</h2>
+                <h2 className="heading-display text-3xl text-primary mb-2">{result.project_plan.overview}</h2>
                 <div className="flex items-center justify-center gap-2 text-slate-500">
                   <Calendar className="w-4 h-4" />
-                  <span className="text-sm italic">{result.timelineRecommendations}</span>
+                  <span className="text-sm italic">{Object.values(result.timeline).join(' · ')}</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-6">
-                {result.steps.map((step, i) => (
+                {result.task_breakdown.map((step, i) => (
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, x: -20 }}
@@ -110,13 +115,13 @@ const AIPlannerPage: React.FC = () => {
                     </div>
                     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-soft flex-grow mb-6 transition-all group-hover:border-primary/20">
                       <h3 className="font-bold text-slate-900 text-lg mb-2 flex items-center gap-2">
-                        {step.title}
+                        {step.task}
                         <CheckCircle2 className="w-4 h-4 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </h3>
-                      <p className="text-slate-600 mb-4 leading-relaxed">{step.description}</p>
+                      <p className="text-slate-600 mb-4 leading-relaxed">Owner role: {step.owner_role}</p>
                       
                       <div className="flex flex-wrap gap-2">
-                        {step.suggestedRoles.map(role => (
+                        {result.suggested_roles.map(role => (
                           <span key={role} className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold">
                             <UserPlus className="w-3 h-3" />
                             {role}

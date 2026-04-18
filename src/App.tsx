@@ -15,6 +15,7 @@ const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 const MessagesPage = lazy(() => import('./pages/messages/MessagesPage'));
 const NotificationsPage = lazy(() => import('./pages/notifications/NotificationsPage'));
 const AIPlannerPage = lazy(() => import('./pages/ai/AIPlannerPage'));
+const MatchesPage = lazy(() => import('./pages/matching/MatchesPage'));
 
 // Protected Route wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -53,6 +54,9 @@ const AppContent: React.FC = () => {
               } />
               <Route path="/messages" element={
                 <ProtectedRoute><MessagesPage /></ProtectedRoute>
+              } />
+              <Route path="/matches" element={
+                <ProtectedRoute><MatchesPage /></ProtectedRoute>
               } />
               <Route path="/notifications" element={
                 <ProtectedRoute><NotificationsPage /></ProtectedRoute>

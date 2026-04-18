@@ -1,8 +1,19 @@
 import axios from 'axios';
-import { Project, User, Message, Notification, Application, AIPlanResult } from '../types';
+import {
+  DirectMessage,
+  DirectThread,
+  Notification,
+  PlannerResult,
+  Profile,
+  Project,
+  User,
+} from '../types';
 
-// In a real app, this would be your Django API base URL
-const BASE_URL = (import.meta as any).env.VITE_API_URL || 'https://api.findateammate.edu';
+const BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+
+const ACCESS_TOKEN_KEY = 'access_token';
+const REFRESH_TOKEN_KEY = 'refresh_token';
+const USER_EMAIL_KEY = 'user_email';
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
@@ -11,139 +22,186 @@ export const apiClient = axios.create({
   },
 });
 
-// Interceptor for JWT handling
+const decodeJwt = (token: string) => {
+  try {
+    const payload = token.split('.')[1];
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = atob(normalized);
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+};
+
+const getAccessToken = () => localStorage.getItem(ACCESS_TOKEN_KEY);
+const getRefreshToken = () => localStorage.getItem(REFRESH_TOKEN_KEY);
+
+const setTokens = (access: string, refresh: string) => {
+  localStorage.setItem(ACCESS_TOKEN_KEY, access);
+  localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
+};
+
+const clearTokens = () => {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+};
+
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-/**
- * Mock Data for development
- */
-export const mockUsers: User[] = [
-  {
-    id: 'u1',
-    username: 'jdoe',
-    email: 'jdoe@university.edu',
-    firstName: 'John',
-    lastName: 'Doe',
-    bio: 'CS junior interested in AI and Web Dev. Love building things from scratch.',
-    skills: ['React', 'TypeScript', 'Node.js', 'Python'],
-    major: 'Computer Science',
-    graduationYear: 2027,
-    avatarUrl: 'https://picsum.photos/seed/u1/200',
-  },
-  {
-    id: 'u2',
-    username: 'asmith',
-    email: 'asmith@university.edu',
-    firstName: 'Alice',
-    lastName: 'Smith',
-    bio: 'Design student focused on UI/UX. Looking for technical partners for a startup idea.',
-    skills: ['Figma', 'UI Design', 'Prototyping'],
-    major: 'Graphic Design',
-    graduationYear: 2026,
-    avatarUrl: 'https://picsum.photos/seed/u2/200',
-  },
-];
+let isRefreshing = false;
+let pendingRequests: Array<(token: string) => void> = [];
 
-export const mockProjects: Project[] = [
-  {
-    id: 'p1',
-    title: 'AI Study Assistant',
-    description: 'A platform that uses LLMs to help students summarize lectures and generate quizzes. Looking for frontend and backend devs.',
-    creatorId: 'u1',
-    tags: ['AI', 'Education', 'Web'],
-    requiredSkills: ['React', 'Python', 'FastAPI'],
-    status: 'open',
-    createdAt: new Date().toISOString(),
-    memberCount: 1,
-    maxMembers: 4,
-  },
-  {
-    id: 'p2',
-    title: 'Campus Food Rescue',
-    description: 'App to connect campus dining halls with students in need to reduce food waste. Need mobile developers.',
-    creatorId: 'u2',
-    tags: ['Social Impact', 'Mobile', 'Sustainability'],
-    requiredSkills: ['React Native', 'Firebase'],
-    status: 'open',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    memberCount: 2,
-    maxMembers: 5,
-  },
-  {
-    id: 'p3',
-    title: 'CodeConnect Hackathon',
-    description: 'Building a matchmaking tool for hackathon participants. Already have a basic design.',
-    creatorId: 'u1',
-    tags: ['Tools', 'Hackathon'],
-    requiredSkills: ['React', 'PostgreSQL'],
-    status: 'open',
-    createdAt: new Date(Date.now() - 172800000).toISOString(),
-    memberCount: 1,
-    maxMembers: 3,
-  },
-];
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      const refreshToken = getRefreshToken();
+      if (!refreshToken) {
+        clearTokens();
+        return Promise.reject(error);
+      }
+      if (isRefreshing) {
+        return new Promise((resolve) => {
+          pendingRequests.push((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            resolve(apiClient(originalRequest));
+          });
+        });
+      }
+      originalRequest._retry = true;
+      isRefreshing = true;
+      try {
+        const response = await apiClient.post('/api/auth/refresh/', { refresh: refreshToken });
+        const newAccess = response.data.access;
+        setTokens(newAccess, refreshToken);
+        apiClient.defaults.headers.Authorization = `Bearer ${newAccess}`;
+        pendingRequests.forEach((cb) => cb(newAccess));
+        pendingRequests = [];
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        clearTokens();
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
-export const mockMessages: Message[] = [
-  {
-    id: 'm1',
-    senderId: 'u2',
-    recipientId: 'u1',
-    content: 'Hey John! I saw your AI Study Assistant project. I would love to join as a designer.',
-    createdAt: new Date().toISOString(),
-    isRead: false,
-  },
-];
+const resolveMediaUrl = (path?: string | null) => {
+  if (!path) return undefined;
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  return `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+};
 
-export const mockNotifications: Notification[] = [
-  {
-    id: 'n1',
-    userId: 'u1',
-    title: 'New Application',
-    content: 'Alice Smith applied to join AI Study Assistant',
-    type: 'application',
-    isRead: false,
-    createdAt: new Date().toISOString(),
-    link: '/projects/p1',
-  },
-];
+const mapProfileToUser = (profile: Profile, email: string): User => {
+  return {
+    id: profile.user,
+    email,
+    fullName: profile.full_name,
+    major: profile.major,
+    studyYear: profile.study_year,
+    bio: profile.bio,
+    skills: profile.skills,
+    interests: profile.interests,
+    preferredRole: profile.preferred_role,
+    avatarUrl: resolveMediaUrl(profile.profile_picture || undefined),
+  };
+};
 
-/**
- * Mock API Endpoints
- */
 export const apiService = {
-  // Projects
-  getProjects: async (params?: any) => {
-    await new Promise(r => setTimeout(r, 800)); // Simulate network lag
-    return { data: mockProjects };
+  auth: {
+    register: async (email: string, password: string, password2: string) => {
+      return apiClient.post('/api/auth/register/', { email, password, password2 });
+    },
+    login: async (email: string, password: string) => {
+      const response = await apiClient.post('/api/auth/login/', { email, password });
+      setTokens(response.data.access, response.data.refresh);
+      localStorage.setItem(USER_EMAIL_KEY, email);
+      return response;
+    },
+    logout: async () => {
+      const refresh = getRefreshToken();
+      if (refresh) {
+        await apiClient.post('/api/auth/logout/', { refresh });
+      }
+      clearTokens();
+      localStorage.removeItem(USER_EMAIL_KEY);
+    },
   },
-  getProject: async (id: string) => {
-    await new Promise(r => setTimeout(r, 500));
-    const project = mockProjects.find(p => p.id === id);
-    if (!project) throw new Error('Project not found');
-    return { data: { ...project, creator: mockUsers.find(u => u.id === project.creatorId) } };
+
+  profiles: {
+    list: async () => apiClient.get('/api/profiles/'),
+    update: async (id: number, payload: Partial<Profile>) => apiClient.patch(`/api/profiles/${id}/`, payload),
+    getCurrentProfile: async () => {
+      const token = getAccessToken();
+      const payload = token ? decodeJwt(token) : null;
+      const userId = payload?.user_id;
+      if (!userId) throw new Error('User not authenticated');
+      const response = await apiClient.get('/api/profiles/');
+      const profile = response.data.results
+        ? response.data.results.find((item: Profile) => item.user === userId)
+        : response.data.find((item: Profile) => item.user === userId);
+      if (!profile) throw new Error('Profile not found');
+      const email = localStorage.getItem(USER_EMAIL_KEY) || '';
+      return { profile, user: mapProfileToUser(profile, email) };
+    },
   },
-  
-  // Auth
-  login: async (credentials: any) => {
-    await new Promise(r => setTimeout(r, 1000));
-    return { data: { token: 'mock-jwt-token', user: mockUsers[0] } };
+
+  projects: {
+    list: async (params?: Record<string, string>) => apiClient.get('/api/projects/', { params }),
+    get: async (id: number) => apiClient.get(`/api/projects/${id}/`),
+    apply: async (projectId: number, message: string) => apiClient.post('/api/projects/applications/', { project: projectId, message }),
   },
-  
-  // Messages
-  getMessages: async () => {
-    await new Promise(r => setTimeout(r, 500));
-    return { data: mockMessages };
+
+  applications: {
+    decide: async (applicationId: number, decision: 'accept' | 'reject') =>
+      apiClient.post(`/api/projects/applications/${applicationId}/decide/`, { decision }),
   },
-  
-  // Profile
-  getProfile: async (id: string) => {
-    await new Promise(r => setTimeout(r, 500));
-    return { data: mockUsers.find(u => u.id === id) || mockUsers[0] };
+
+  matching: {
+    recommendedProjects: async () => apiClient.get('/api/matching/projects/'),
   },
+
+  messaging: {
+    listThreads: async () => apiClient.get('/api/messaging/direct-threads/'),
+    listMessages: async () => apiClient.get('/api/messaging/direct-messages/'),
+    sendMessage: async (threadId: number, body: string) =>
+      apiClient.post('/api/messaging/direct-messages/', { thread: threadId, body }),
+    startThread: async (userId: number) =>
+      apiClient.post('/api/messaging/direct-threads/start/', { user_id: userId }),
+  },
+
+  notifications: {
+    list: async () => apiClient.get('/api/notifications/'),
+    markAllRead: async () => apiClient.post('/api/notifications/mark-all-read/'),
+  },
+
+  planner: {
+    create: async (inputText?: string, file?: File) => {
+      const formData = new FormData();
+      if (inputText) {
+        formData.append('input_text', inputText);
+      }
+      if (file) {
+        formData.append('upload_file', file);
+      }
+      return apiClient.post('/api/planner/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    },
+    get: async (id: number) => apiClient.get(`/api/planner/${id}/`),
+  },
+};
+
+export const apiAdapters = {
+  mapProfileToUser,
 };

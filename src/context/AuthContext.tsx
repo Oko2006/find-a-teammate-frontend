@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, AuthState } from '../types';
+import { apiService } from '../services/api';
 
 interface AuthContextType extends AuthState {
-  login: (accessToken: string, user: User) => void;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
   updateUser: (user: User) => void;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,25 +19,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAuthenticated: false,
   });
 
-  useEffect(() => {
-    // Check for stored session (simplified mock)
-    const storedUser = localStorage.getItem('user');
-    const storedToken = localStorage.getItem('token');
-    
-    if (storedUser && storedToken) {
-      setState({
-        user: JSON.parse(storedUser),
-        accessToken: storedToken,
-        isLoading: false,
+  const refreshProfile = async () => {
+    try {
+      const { profile, user } = await apiService.profiles.getCurrentProfile();
+      setState(prev => ({
+        ...prev,
+        user,
         isAuthenticated: true,
-      });
+        isLoading: false,
+      }));
+    } catch {
+      setState(prev => ({ ...prev, isLoading: false, isAuthenticated: false }));
+    }
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      setState(prev => ({ ...prev, accessToken: token }));
+      refreshProfile();
     } else {
       setState(prev => ({ ...prev, isLoading: false }));
     }
   }, []);
 
-  const login = (accessToken: string, user: User) => {
-    localStorage.setItem('token', accessToken);
+  const login = async (email: string, password: string) => {
+    const response = await apiService.auth.login(email, password);
+    const accessToken = response.data.access as string;
+    const { user } = await apiService.profiles.getCurrentProfile();
     localStorage.setItem('user', JSON.stringify(user));
     setState({
       user,
@@ -45,8 +56,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
+  const logout = async () => {
+    await apiService.auth.logout();
     localStorage.removeItem('user');
     setState({
       user: null,
@@ -62,7 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ ...state, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ ...state, login, logout, updateUser, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

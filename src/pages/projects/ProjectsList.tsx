@@ -10,15 +10,16 @@ const ProjectsList: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTag, setSelectedTag] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState('All');
 
-  const tags = ['All', 'AI', 'Education', 'Social Impact', 'Sustainability', 'Security', 'Fintech'];
+  const categories = ['All', 'course', 'hackathon', 'startup', 'research', 'other'];
 
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const { data } = await apiService.getProjects();
-        setProjects(data);
+        const { data } = await apiService.projects.list();
+        const results = data.results ? data.results : data;
+        setProjects(results);
       } catch (err) {
         console.error(err);
       } finally {
@@ -31,8 +32,8 @@ const ProjectsList: React.FC = () => {
   const filteredProjects = projects.filter(p => {
     const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          p.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTag = selectedTag === 'All' || p.tags.includes(selectedTag);
-    return matchesSearch && matchesTag;
+    const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
+    return matchesSearch && matchesCategory;
   });
 
   return (
@@ -62,17 +63,17 @@ const ProjectsList: React.FC = () => {
         
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide lg:pb-0">
           <SlidersHorizontal className="text-slate-400 w-5 h-5 min-w-[20px] mr-2" />
-          {tags.map(tag => (
+          {categories.map(category => (
             <button
-              key={tag}
-              onClick={() => setSelectedTag(tag)}
+              key={category}
+              onClick={() => setSelectedCategory(category)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
-                selectedTag === tag 
+                selectedCategory === category 
                 ? 'bg-primary text-white shadow-indigo' 
                 : 'bg-white border border-slate-200 text-slate-600 hover:border-primary'
               }`}
             >
-              {tag}
+              {category === 'All' ? 'All' : category.replace('-', ' ')}
             </button>
           ))}
         </div>
@@ -107,7 +108,7 @@ const ProjectsList: React.FC = () => {
               </div>
               <h2 className="text-2xl font-bold text-slate-400 mb-2">No projects found</h2>
               <p className="text-slate-400">Try adjusting your search or filters.</p>
-              <Button variant="ghost" className="mt-6" onClick={() => { setSearchQuery(''); setSelectedTag('All'); }}>
+              <Button variant="ghost" className="mt-6" onClick={() => { setSearchQuery(''); setSelectedCategory('All'); }}>
                 Clear all filters
               </Button>
             </motion.div>

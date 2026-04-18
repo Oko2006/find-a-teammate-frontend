@@ -45,9 +45,9 @@ const Navbar: React.FC = () => {
             <div className="flex items-center gap-3">
               <Link to="/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                 <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm">
-                  {user?.firstName.charAt(0)}{user?.lastName.charAt(0)}
+                  {user?.fullName?.split(' ').map(part => part[0]).join('').slice(0, 2)}
                 </div>
-                <span className="hidden md:block text-sm font-bold text-text-main">{user?.firstName} {user?.lastName}</span>
+                <span className="hidden md:block text-sm font-bold text-text-main">{user?.fullName}</span>
               </Link>
               <button 
                 onClick={handleLogout}

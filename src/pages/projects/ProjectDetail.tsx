@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { apiService, mockUsers } from '../../services/api';
-import { Project, User } from '../../types';
+import { apiService } from '../../services/api';
+import { Project } from '../../types';
 import { 
   Users, 
   Calendar, 
-  MapPin, 
   ArrowLeft, 
   Star, 
-  Send, 
   UserPlus, 
   Share2,
   CheckCircle,
@@ -31,7 +29,7 @@ const ProjectDetail: React.FC = () => {
     const fetchProject = async () => {
       if (!id) return;
       try {
-        const { data } = await apiService.getProject(id);
+        const { data } = await apiService.projects.get(Number(id));
         setProject(data);
       } catch (err) {
         console.error(err);
@@ -44,10 +42,14 @@ const ProjectDetail: React.FC = () => {
 
   const handleApply = async () => {
     setIsApplying(true);
-    // Simulate application process
-    await new Promise(r => setTimeout(r, 1500));
-    setHasApplied(true);
-    setIsApplying(false);
+    try {
+      await apiService.projects.apply(project.id, 'Interested in joining');
+      setHasApplied(true);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   if (isLoading) return <div className="section-container py-20 text-center text-slate-500">Loading project details...</div>;
@@ -68,11 +70,9 @@ const ProjectDetail: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
           >
             <div className="flex flex-wrap gap-2 mb-6">
-              {project.tags.map(tag => (
-                <span key={tag} className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider rounded-lg">
-                  {tag}
-                </span>
-              ))}
+              <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider rounded-lg">
+                {project.category}
+              </span>
               <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold uppercase tracking-wider rounded-lg">
                 Verified Team
               </span>
@@ -83,11 +83,11 @@ const ProjectDetail: React.FC = () => {
             <div className="flex flex-wrap gap-6 text-slate-500 text-sm font-medium mb-10 pb-10 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />
-                <span>{project.memberCount} / {project.maxMembers} Members</span>
+                <span>Team size needed: {project.team_size_needed}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-primary" />
-                <span>Posted {formatDate(project.createdAt)}</span>
+                <span>Posted {formatDate(project.created_at)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Star className="w-5 h-5 text-amber-500" />
@@ -103,14 +103,14 @@ const ProjectDetail: React.FC = () => {
               
               <h3 className="heading-display text-2xl text-slate-900 mt-10 mb-4">What we're looking for</h3>
               <ul className="space-y-4">
-                {project.requiredSkills.map((skill, index) => (
+                {project.required_skills.map((skill, index) => (
                   <li key={index} className="flex items-start gap-3 text-slate-600">
                     <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
                       <CheckCircle className="w-4 h-4 text-emerald-600" />
                     </div>
                     <div>
-                      <span className="font-bold text-slate-900">{skill} Expert:</span>
-                      <p className="text-sm">Someone who can handle {skill} development and contribute to core architecture decisions.</p>
+                      <span className="font-bold text-slate-900">{skill}:</span>
+                      <p className="text-sm">Relevant experience with {skill}.</p>
                     </div>
                   </li>
                 ))}
@@ -151,7 +151,7 @@ const ProjectDetail: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-500">Open Spots</span>
-                    <span className="font-bold text-slate-900">{project.maxMembers - project.memberCount} remaining</span>
+                    <span className="font-bold text-slate-900">{project.team_size_needed}</span>
                   </div>
                 </div>
                 
@@ -176,15 +176,15 @@ const ProjectDetail: React.FC = () => {
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Project Lead</h4>
             <div className="flex items-center gap-4">
               <img 
-                src={project.creator?.avatarUrl || `https://ui-avatars.com/api/?name=${project.creator?.firstName}+${project.creator?.lastName}`}
+                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(project.created_by)}`}
                 className="w-12 h-12 rounded-full border-2 border-white shadow-soft"
                 alt="Lead"
               />
               <div>
-                <Link to={`/profile/${project.creatorId}`} className="font-bold text-slate-900 hover:text-primary transition-colors">
-                  {project.creator?.firstName} {project.creator?.lastName}
-                </Link>
-                <p className="text-xs text-slate-500">{project.creator?.major}</p>
+                <span className="font-bold text-slate-900">
+                  {project.created_by}
+                </span>
+                <p className="text-xs text-slate-500">Project owner</p>
               </div>
             </div>
           </div>
