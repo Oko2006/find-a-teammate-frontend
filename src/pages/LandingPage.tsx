@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Users, Rocket, Zap, Heart, ArrowRight, ShieldCheck } from 'lucide-react';
 import Button from '../components/common/Button';
+import logo from '../assets/logo.png';
+import wordmark from '../assets/wordmark.png';
 
 const LandingPage: React.FC = () => {
   return (
@@ -20,6 +22,18 @@ const LandingPage: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <img
+                src={logo}
+                alt="FindATeammate logo"
+                className="w-12 h-12 rounded-2xl shadow-main"
+              />
+              <img
+                src={wordmark}
+                alt="FindATeammate"
+                className="h-7 sm:h-8"
+              />
+            </div>
             <span className="inline-block px-4 py-1.5 rounded-full bg-primary-light text-primary text-xs font-bold uppercase tracking-widest mb-6">
               Exclusive for University Students
             </span>
@@ -48,7 +62,7 @@ const LandingPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             {[
               { icon: Rocket, title: 'Hackathons', desc: 'Find specialized developers or designers to crush your next week-end build.' },
-              { icon: Zap, title: 'Class Projects', desc: "Don't get stuck with slackers. Find teammates who actually want an A." },
+              { icon: Zap, title: 'Class Projects', desc: "Don't get stuck with slackers. Find teammates who actually want an A+." },
               { icon: Users, title: 'Startup Ideas', desc: 'Met your future co-founder? Start building that world-changing app today.' }
             ].map((feature, i) => (
               <motion.div

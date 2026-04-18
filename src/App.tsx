@@ -5,6 +5,7 @@ import Navbar from './components/common/Navbar';
 import Sidebar from './components/common/Sidebar';
 import LandingPage from './pages/LandingPage';
 import { cn } from './lib/utils';
+import wordmark from './assets/wordmark.png';
 
 // Lazy load pages for performance
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
@@ -69,8 +70,9 @@ const AppContent: React.FC = () => {
         </main>
         
         <footer className="bg-surface border-t border-border py-12 mt-20">
-          <div className="section-container text-center">
-            <p className="text-text-muted text-xs font-semibold uppercase tracking-widest">© 2026 FindATeammate. Professional Student Collaboration.</p>
+          <div className="section-container flex flex-col items-center gap-4 text-center">
+            <img src={wordmark} alt="FindATeammate" className="h-6" />
+            <p className="text-text-muted text-xs font-semibold uppercase tracking-widest">© 2026 Omar Alomari. All rights reserved.</p>
           </div>
         </footer>
       </div>

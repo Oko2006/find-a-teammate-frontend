@@ -7,6 +7,8 @@ import {
   Menu
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import logo from '../../assets/logo.png';
+import wordmark from '../../assets/wordmark.png';
 
 const Navbar: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
@@ -24,6 +26,19 @@ const Navbar: React.FC = () => {
         <button className="md:hidden p-2 text-text-muted">
           <Menu className="w-6 h-6" />
         </button>
+
+        <Link to="/" className="flex items-center gap-3">
+          <img
+            src={logo}
+            alt="FindATeammate logo"
+            className="w-9 h-9 rounded-xl shadow-main"
+          />
+          <img
+            src={wordmark}
+            alt="FindATeammate"
+            className="hidden sm:block h-6"
+          />
+        </Link>
         
         <div className="hidden md:flex relative w-full max-w-[400px]">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted w-4 h-4" />
